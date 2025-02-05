@@ -23,6 +23,8 @@ To run the playbook, use `ansible-playbook main.yaml -i inventory`.
 
 Running the playbook will perform the following tasks:
 
+`[manage_certs]`
+
 - Re/deploy a basic HTTP LB that provides HTTP access
   - `GET http://<CN>/` returns a static page using a direct response route configured on the LB.
 - If debug is enabled, pause and wait for you to check that your DNS resolves and that HTTP works (and HTTPS does not).  Hit enter to continue.
@@ -35,7 +37,15 @@ Running the playbook will perform the following tasks:
   - `GET http://<CN>/` returns a static page using a direct response route configured on the LB
   - `GET http://<CN>/.well-known/acme-challenge/<resource>` returns a static page containing Let's Encrypt challenge `resource_value` using a direct response route configured on the LB.
 - Send ACME request to Let's Encrypt to request validation of the challenge, and if successful, get the signed certificate in response.
-- Re/deploy certificate/key to XC that should provide HTTPS access using a valid (or staging) Let's Encrypt signed certificate.
+- Re/deploy certificate and key (including the validation chain) to XC that should provide HTTPS access using a valid (or staging) Let's Encrypt signed certificate.
 - Update HTTP LB to replace ACME challenge route with redirect to HTTP.
   - `GET http://<CN>/` returns a 302 redirect to `https://<CN>/`.
   - `GET https://<CN>/` returns a static page using a direct response route configured on the LB.
+
+`[revoke_certs]`
+
+- Check that the private key exists.
+- Revoke the certiificate using the Account Private Key.
+  - Alternatively, you can uncomment the `REVOKE CERTIFICATE WITH CERTS PRIVATE KEY` task and use the cert private key instead.
+- Delete the F5XC HTTP LB, F5XC HTTPS LB and the certificate and key that was uploaded to F5XC.
+- Delete the local copies of the certificates and keys.
