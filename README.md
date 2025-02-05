@@ -8,11 +8,11 @@ This playbook demonstrates that it is possible to use ACMEv2 HTTP-01 challenge t
 
 - You must have access to an F5 XC Account with permissions to create LB and Certificates within an application/user namespace.
 - This playbook uses the `inventory` to manage and iterate over the certificates to be managed.
-- - `inventory.example` can be renamed to `inventory` and used as a starting point
-- - `inventory` contains two main sections `[manage_certs]` and `[revoke_certs]`
-- - - `[revoke_certs]` is not fully tested, but included for reference.
+  - `inventory.example` can be renamed to `inventory` and used as a starting point
+  - `inventory` contains two main sections `[manage_certs]` and `[revoke_certs]`
+    - `[revoke_certs]` is not fully tested, but included for reference.
 - You need to update the vars in the `/vars/vars.yaml.example`, and rename to `/vars/vars.yaml`.
-- - Make sure you start with the ACME staging servers while testing/demoing.
+  - Make sure you start with the ACME staging servers while testing/demoing.
 - Generate an F5 XC API Token (https://my.f5.com/manage/s/article/K000147972)
 - Create a DNS record for the LB (this playbook does not manage DNS for you).  Alternatively you could use a wildcard DNS service, matching the HTTP public VIP e.g. my.name.18.130.10.18.nip.io
 
