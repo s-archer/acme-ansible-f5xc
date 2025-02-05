@@ -4,6 +4,10 @@ F5 XC natively supports ACMEv2 DNS-01, but if DNS is not in your direct control,
 
 This playbook demonstrates that it is possible to use ACMEv2 HTTP-01 challenge to manage certificates in F5 XC.  This playbook deploys LBs that have a direct response configured, to fake a backend application.  In a real deployment, the LB configurations should be adapted for your requirements.
 
+## Warning
+
+This is intended for demonstration purposes.  The process of creating, signing and deploying certificates may not comply with your organisation security policies, so please take care to review the configuration parameters and workflow, and update as necessary.
+
 ## Prerequisites
 
 - You must have access to an F5 XC Account with permissions to create LB and Certificates within an application/user namespace.
