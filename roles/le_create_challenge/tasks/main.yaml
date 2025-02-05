@@ -105,7 +105,7 @@
 - name: DEBUG OUT THE LET'S ENCRYPT CHALLENGE COMPLETE (** SECURITY RISK **)
   debug:
     msg: "{{ acme_challenge | to_nice_json }}"
-  # when: debug is true
+  when: debug is true
 
 
 - name: IF NOT EXIST, TOUCH LET'S ENCRYPT CHALLENGE TO FILE  
