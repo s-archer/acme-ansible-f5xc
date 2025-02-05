@@ -1,7 +1,9 @@
 ---
   # Decide if you want to use Let's Encrypt production or staging servers to get your cert (stage is best for testing)
   use_staging: true
-  # Note that DNS is not managed by this playbook, so must be managed separately.
+
+  # enable or disable additional debug output (security risk)
+  debug: false
 
   cert_org: my-org
   cert_country: GB
