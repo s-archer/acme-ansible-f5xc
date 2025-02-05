@@ -15,14 +15,14 @@
     - role: https_lb
 
 
-# - name: F5XC REVOKE CERTS
-#   hosts: revoke_certs
-#   connection: local
-#   gather_facts: false
+- name: F5XC REVOKE CERTS
+  hosts: revoke_certs
+  connection: local
+  gather_facts: false
 
-#   vars_files:
-#     - ./vars/vars.yaml
+  vars_files:
+    - ./vars/vars.yaml
     
-#   roles:
-#     - role: le_revoke
+  roles:
+    - role: le_revoke
 ...
