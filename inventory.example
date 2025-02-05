@@ -1,0 +1,16 @@
+[manage_certs]
+acme8.example.com
+acme9.example.com
+
+[revoke_certs]
+acme1.example.com
+acme2.example.com
+acme3.example.com
+acme4.example.com
+acme5.example.com
+acme6.example.com
+acme7.example.com
+
+[all:vars]
+ansible_connection=local 
+ansible_python_interpreter=python

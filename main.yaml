@@ -1,0 +1,28 @@
+---
+
+- name: F5XC ACME MANAGE CERTS
+  hosts: manage_certs
+  connection: local
+  gather_facts: false
+
+  vars_files:
+    - ./vars/vars.yaml
+    
+  roles:
+    - role: http_lb
+    - role: le_create_challenge
+    - role: le_validate_challenge
+    - role: https_lb
+
+
+# - name: F5XC REVOKE CERTS
+#   hosts: revoke_certs
+#   connection: local
+#   gather_facts: false
+
+#   vars_files:
+#     - ./vars/vars.yaml
+    
+#   roles:
+#     - role: le_revoke
+...

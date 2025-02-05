@@ -1,0 +1,133 @@
+- name: CHECK IF CERTIFICATE EXISTS 
+  uri:
+    url: "{{ f5xc_api }}/config/namespaces/{{ f5xc_namespace }}/certificates/{{ f5xc_object_prefix }}-cert"
+    method: GET
+    headers: 
+      Content-Type: "application/json"
+      Authorization: "APIToken {{ f5xc_token }}"
+    status_code: 
+      - 200
+      - 404
+    validate_certs: no
+  register: f5xc_cert_check
+  retries: 0
+  until: ('status' in f5xc_cert_check and (f5xc_cert_check.status == 200 or f5xc_cert_check.status == 404 ))
+  when: acme_certs is changed
+
+
+- name: DEPLOY NEW CERTIFICATE 
+  uri:
+    url: "{{ f5xc_api }}/config/namespaces/{{ f5xc_namespace }}/certificates"
+    method: POST
+    headers: 
+      Content-Type: "application/json"
+      Authorization: "APIToken {{ f5xc_token }}"
+    body: "{{ lookup('template','./templates/f5xc_cert_and_key.tpl') | to_nice_json }}"
+    force_basic_auth: no
+    status_code: 
+      - 200
+    body_format: json
+    validate_certs: no
+  register: f5xc_response
+  retries: 0
+  until: ('status' in f5xc_response and (f5xc_response.status == 200 or f5xc_response.status == 409 ))
+  when: (f5xc_cert_check.status is defined) and ((f5xc_cert_check.status == 404) and (acme_certs is changed))
+
+
+- name: ...OR, IF CERTIFICATE ALREADY EXISTS, REPLACE IT 
+  uri:
+    url: "{{ f5xc_api }}/config/namespaces/{{ f5xc_namespace }}/certificates/{{ f5xc_object_prefix }}-cert"
+    method: PUT
+    headers: 
+      Content-Type: "application/json"
+      Authorization: "APIToken {{ f5xc_token }}"
+    body: "{{ lookup('template','./templates/f5xc_cert_and_key.tpl') }}"
+    force_basic_auth: no
+    status_code: 
+      - 200
+    body_format: json
+    validate_certs: no
+  register: f5xc_response
+  retries: 0
+  until: ('status' in f5xc_response and (f5xc_response.status == 200 ))
+  when: (f5xc_cert_check.status is defined) and ((f5xc_cert_check.status == 200) and (acme_certs is changed))
+
+
+- name: CHECK IF HTTPS LB EXISTS 
+  uri:
+    url: "{{ f5xc_api }}/config/namespaces/{{ f5xc_namespace }}/http_loadbalancers/{{ f5xc_object_prefix }}-https"
+    method: GET
+    headers: 
+      Content-Type: "application/json"
+      Authorization: "APIToken {{ f5xc_token }}"
+    status_code: 
+      - 200
+      - 404
+    validate_certs: no
+  register: f5xc_https_lb_check
+  retries: 0
+  until: ('status' in f5xc_https_lb_check and (f5xc_https_lb_check.status == 200 or f5xc_https_lb_check.status == 404 ))
+  when: acme_certs is changed
+
+
+- name: DEPLOY NEW HTTPS LB
+  uri:
+    url: "{{ f5xc_api }}/config/namespaces/{{ f5xc_namespace }}/http_loadbalancers"
+    method: POST
+    headers: 
+      Content-Type: "application/json"
+      Authorization: "APIToken {{ f5xc_token }}"
+    body: "{{ lookup('template','./templates/f5xc_final_with_tls.tpl') | to_nice_json }}"
+    force_basic_auth: no
+    status_code: 
+      - 200
+    body_format: json
+    validate_certs: no
+  register: f5xc_response
+  retries: 0
+  until: ('status' in f5xc_response and (f5xc_response.status == 200 or f5xc_response.status == 409 ))
+  when: (f5xc_https_lb_check.status is defined) and ((f5xc_https_lb_check.status == 404) and (acme_certs is changed))
+
+
+- name: ...OR, IF HTTPS LB ALREADY EXISTS, UPDATE IT 
+  uri:
+    url: "{{ f5xc_api }}/config/namespaces/{{ f5xc_namespace }}/http_loadbalancers/{{ f5xc_object_prefix }}-https"
+    method: PUT
+    headers: 
+      Content-Type: "application/json"
+      Authorization: "APIToken {{ f5xc_token }}"
+    body: "{{ lookup('template','./templates/f5xc_final_with_tls.tpl') }}"
+    force_basic_auth: no
+    status_code: 
+      - 200
+    body_format: json
+    validate_certs: no
+  register: f5xc_response
+  retries: 0
+  until: ('status' in f5xc_response and (f5xc_response.status == 200 ))
+  when: (f5xc_https_lb_check.status is defined) and ((f5xc_https_lb_check.status == 200) and (acme_certs is changed))
+
+
+- name: UPDATE THE HTTP LB WITH REDIRECT 
+  uri:
+    url: "{{ f5xc_api }}/config/namespaces/{{ f5xc_namespace }}/http_loadbalancers/{{ f5xc_object_prefix }}-http"
+    method: PUT
+    headers: 
+      Content-Type: "application/json"
+      Authorization: "APIToken {{ f5xc_token }}"
+    body: "{{ lookup('template','./templates/f5xc_lb_http_with_https_redirect.tpl') }}"
+    force_basic_auth: no
+    status_code: 
+      - 200
+    body_format: json
+    validate_certs: no
+  register: f5xc_response
+  retries: 0
+  until: ('status' in f5xc_response and (f5xc_response.status == 200 ))
+  when: f5xc_http_lb_check.status == 200
+
+
+- name: DEBUG OUT THE HTTPS LINK TO TEST 
+  debug:
+    msg: "Lets Encrypt Completed.  Test the HTTPS version of the app here: https://{{ inventory_hostname }}"
+  when: debug is true

@@ -1,3 +1,14 @@
+# keys and certs files
+*.pem
+*.crt
+*.key
+certificates/
+
+# vars and inventory files
+vars.yaml
+vars.yml
+inventory
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

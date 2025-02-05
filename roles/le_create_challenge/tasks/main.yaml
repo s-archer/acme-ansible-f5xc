@@ -1,0 +1,120 @@
+- name: CREATE CERTS DIRECTORY IF NOT EXIST
+  ansible.builtin.file:
+    path: ./certificates/{{ inventory_hostname }}
+    state: directory
+    mode: '0755'
+
+
+- name: GENERATE PRIVATE SSL KEY FOR LET'S ENCRYPT ACCOUNT CREATE  (** SECURITY RISK **)
+  openssl_privatekey:
+    path: ./certificates/letsencrypt_account.pem.key
+    size: 2048
+
+
+- name: SET LET'S ENCRYPT SERVER TO STAGING OR PRODUCTION
+  set_fact:
+    acme_directory: "{{ 'https://acme-staging-v02.api.letsencrypt.org/directory' if (use_staging == 'true') else 'https://acme-v02.api.letsencrypt.org/directory' }}"
+
+
+- name: CREATE OR VERIFY LET'S ENCRYPT ACCOUNT AND AGREE TOS.
+  acme_account:
+    acme_version: 2
+    acme_directory: "{{ acme_directory }}"
+    account_key_src: ./certificates/letsencrypt_account.pem.key
+    state: present
+    terms_agreed: yes
+    contact:
+    - mailto:{{ lets_encrypt_email }}
+  register: letsencrypt_account
+
+
+- name: DEBUG OUT THE ACCOUNT INFO  (** SECURITY RISK **)
+  debug:
+    msg: "{{ letsencrypt_account }}"
+  when: debug is true
+
+
+- name: GENERATE PRIVATE SSL KEY FOR APP CSR (** SECURITY RISK **)
+  openssl_privatekey:
+    path: "./certificates/{{ inventory_hostname }}/{{ inventory_hostname }}.pem.key"
+    type: ECC
+    curve: secp256r1
+    mode: "0600"
+
+
+- name: GENERATE APP CSR FROM PRIVATE SSL KEY
+  openssl_csr:
+    path: "./certificates/{{ inventory_hostname }}/{{ inventory_hostname }}.pem.csr"
+    privatekey_path: "./certificates/{{ inventory_hostname }}/{{ inventory_hostname }}.pem.key"
+    country_name: "{{ cert_country }}"
+    organization_name: "{{ cert_org }}"
+    email_address: "{{ lets_encrypt_email }}"
+    common_name: "{{ inventory_hostname }}"
+    key_usage:
+      - digitalSignature
+      - keyEncipherment
+    extended_key_usage:
+      - serverAuth
+
+
+- name: REQUEST LET'S ENCRYPT CHALLENGE FOR THE APP CSR
+  acme_certificate:
+    account_key_src: ./certificates/letsencrypt_account.pem.key
+    csr: "./certificates/{{ inventory_hostname }}/{{ inventory_hostname }}.pem.csr"
+    dest: "./certificates/{{ inventory_hostname }}/{{ inventory_hostname }}.pem.crt"
+    fullchain_dest: "./certificates/{{ inventory_hostname }}/{{ inventory_hostname }}.pem.fullchain.crt"
+    acme_version: 2
+    acme_directory: "{{ acme_directory }}"
+    challenge: http-01
+    remaining_days: 60
+    # force: true
+  register: acme_challenge
+
+
+- name: DEBUG OUT THE LET'S ENCRYPT CHALLENGE COMPLETE (** SECURITY RISK **)
+  debug:
+    msg: "{{ acme_challenge | to_nice_json }}"
+  when: debug is true
+
+
+- name: IF NOT EXIST, TOUCH LET'S ENCRYPT CHALLENGE TO FILE  
+  file:
+    path: "./certificates/{{ inventory_hostname }}/{{ inventory_hostname }}.challenge.json"
+    state: touch
+  when: debug is true
+
+
+- name: WRITE LET'S ENCRYPT CHALLENGE TO FILE (IN CASE OF ANSIBLE FAILURE)
+  copy:
+    content: "{{ acme_challenge | to_nice_json }}"
+    dest: "./certificates/{{ inventory_hostname }}/{{ inventory_hostname }}.challenge.json"
+  when: debug is true
+
+
+- name: MESSAGE IF CERT STILL VALID 
+  debug: msg="Certificate still valid.  No need to upgrade - {{ acme_challenge | json_query('cert_days')}} days remaining."
+  when: acme_challenge is changed
+
+
+- name: SET FACT CHALLENGE RESOURCE (REQUIRED URL) VALUE BY QUERYING JSON (inventory_hostname IS ANSIBLE VAR)
+  set_fact:
+    resource: "{{ acme_challenge | json_query('challenge_data.\"' + inventory_hostname + '\".\"http-01\".resource')}}"
+  when: acme_challenge is changed
+
+
+- name: DEBUG OUT THE LET'S ENCRYPT CHALLENGE RESOURCE (REQUIRED URL) (** SECURITY RISK **)
+  debug:
+    msg: "{{ resource }}"
+  when: (debug is true) and (acme_challenge is changed)
+
+
+- name: SET FACT CHALLENGE RESOURCE VALUE (REQUIRED RESPONSE) BY QUERYING JSON (inventory_hostname IS ANSIBLE VAR)
+  set_fact:
+    resource_value: "{{ acme_challenge | json_query('challenge_data.\"' + inventory_hostname + '\".\"http-01\".resource_value')}}"
+  when: acme_challenge is changed
+
+
+- name: DEBUG OUT THE LET'S ENCRYPT CHALLENGE RESOURCE VALUE (REQUIRED RESPONSE) (** SECURITY RISK **)      
+  debug:
+    msg: "{{ resource_value }}"
+  when: (debug is true) and (acme_challenge is changed)

@@ -1,0 +1,102 @@
+- name: SET LET'S ENCRYPT SERVER TO STAGING OR PRODUCTION
+  set_fact:
+    acme_directory: "{{ 'https://acme-staging-v02.api.letsencrypt.org/directory' if (use_staging == 'true') else 'https://acme-v02.api.letsencrypt.org/directory' }}"
+
+
+- name: CHECK KEY EXISTS
+  stat:
+    path: ./certificates/{{ inventory_hostname }}/{{ inventory_hostname }}.pem.key
+  register: key_exists
+
+
+- name: REVOKE CERTIFICATE WITH ACCOUNT KEY
+  community.crypto.acme_certificate_revoke:
+    acme_version: 2
+    acme_directory: "{{ acme_directory }}"
+    account_key_src: ./certificates/letsencrypt_account.pem.key
+    certificate: ./certificates/{{ inventory_hostname }}/{{ inventory_hostname }}.pem.crt
+  register: revoke_cert
+  when: key_exists.stat.exists
+
+
+# - name: REVOKE CERTIFICATE WITH CERTS PRIVATE KEY
+#   community.crypto.acme_certificate_revoke:
+#     acme_version: 2
+#     acme_directory: "{{ acme_directory }}"
+#     private_key_src: ./certificates/{{ inventory_hostname }}/{{ inventory_hostname }}.pem.key
+#     certificate: ./certificates/{{ inventory_hostname }}/{{ inventory_hostname }}.pem.crt
+#   register: revoke_cert
+#   when: key_exists.stat.exists
+
+
+- name: DEBUG REVOKE
+  debug:
+    msg: "{{revoke_cert}}"
+  when: (debug is true) and (key_exists.stat.exists)
+
+
+- name: DELETE HTTP LB 
+  uri:
+    url: "{{ f5xc_api }}/config/namespaces/{{ f5xc_namespace }}/http_loadbalancers/{{ f5xc_object_prefix }}-http"
+    method: DELETE
+    headers: 
+      Content-Type: "application/json"
+      Authorization: "APIToken {{ f5xc_token }}"
+    # body: "{{ lookup('template','./templates/f5xc_lb_start_with_http.tpl') }}"
+    force_basic_auth: no
+    status_code: 
+      - 200
+      - 404
+    body_format: json
+    validate_certs: no
+  register: f5xc_response
+  retries: 0
+  until: ('status' in f5xc_response and (f5xc_response.status == 200 ))
+  when: revoke_cert is changed
+
+
+- name: DELETE CERTIFICATE
+  uri:
+    url: "{{ f5xc_api }}/config/namespaces/{{ f5xc_namespace }}/certificates/{{ f5xc_object_prefix }}-cert"
+    method: DELETE
+    headers: 
+      Content-Type: "application/json"
+      Authorization: "APIToken {{ f5xc_token }}"
+    # body: "{{ lookup('template','./templates/f5xc_cert_and_key.tpl') }}"
+    force_basic_auth: no
+    status_code: 
+      - 200
+      - 404
+    body_format: json
+    validate_certs: no
+  register: f5xc_response
+  retries: 0
+  until: ('status' in f5xc_response and (f5xc_response.status == 200 ))
+  when: revoke_cert is changed
+
+
+- name: DELETE HTTPS LB
+  uri:
+    url: "{{ f5xc_api }}/config/namespaces/{{ f5xc_namespace }}/http_loadbalancers/{{ f5xc_object_prefix }}-https"
+    method: DELETE
+    headers: 
+      Content-Type: "application/json"
+      Authorization: "APIToken {{ f5xc_token }}"
+    # body: "{{ lookup('template','./templates/f5xc_final_with_tls.tpl') }}"
+    force_basic_auth: no
+    status_code: 
+      - 200
+      - 404
+    body_format: json
+    validate_certs: no
+  register: f5xc_response
+  retries: 0
+  until: ('status' in f5xc_response and (f5xc_response.status == 200 ))
+  when: revoke_cert is changed
+
+
+- name: REMOVE REVOKED CERT DIRECTORY
+  ansible.builtin.file:
+    path: ./certificates/{{ inventory_hostname }}
+    state: absent
+  when: revoke_cert is changed

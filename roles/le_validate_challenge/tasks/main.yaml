@@ -1,0 +1,42 @@
+- name: DEPLOY HTTP LB WITH CHALLENGE ROUTE
+  uri:
+    url: "{{ f5xc_api }}/config/namespaces/{{ f5xc_namespace }}/http_loadbalancers/{{ f5xc_object_prefix }}-http"
+    method: PUT
+    headers: 
+      Content-Type: "application/json"
+      Authorization: "APIToken {{ f5xc_token }}"
+    body: "{{ lookup('template','./templates/f5xc_lb_with_challenge_route.tpl') }}"
+    force_basic_auth: no
+    status_code: 
+      - 200
+    body_format: json
+    validate_certs: no
+  register: f5xc_response
+  retries: 0
+  until: ('status' in f5xc_response and (f5xc_response.status == 200 ))
+  when: acme_challenge is changed
+
+
+- name: PAUSE FOR 5 SECONDS FOR LB DEPLOYMENT
+  ansible.builtin.pause:
+    seconds: 5
+  when: acme_challenge is changed
+
+
+- name: VALIDATE CHALLENGE AND GET CERTS
+  acme_certificate:
+    account_key_src: ./certificates/letsencrypt_account.pem.key
+    csr: "./certificates/{{ inventory_hostname }}/{{ inventory_hostname }}.pem.csr"
+    dest: "./certificates/{{ inventory_hostname }}/{{ inventory_hostname }}.pem.crt"
+    fullchain_dest: "./certificates/{{ inventory_hostname }}/{{ inventory_hostname }}.pem.fullchain.crt"
+    acme_version: 2
+    acme_directory: "{{ acme_directory }}"
+    challenge: http-01
+    data: "{{ acme_challenge }}"
+  register: acme_certs
+
+
+- name: DEBUG VALIDATE CHALLENGE AND GET CERTS
+  debug:
+    msg: "{{ acme_certs | to_nice_json }}"
+  when: debug is true
