@@ -56,6 +56,37 @@
     extended_key_usage:
       - serverAuth
 
+# The below 3 tasks can be used to explicitly deactivate authz for a cert, if it has failed for some reason.
+# The first task runs acme_certificate to get the order_url, the second is debug and the third task deactivates the authz
+#
+- name: REQUEST LET'S ENCRYPT CHALLENGE FOR THE APP CSR
+  acme_certificate:
+    account_key_src: ./certificates/letsencrypt_account.pem.key
+    csr: "./certificates/{{ inventory_hostname }}/{{ inventory_hostname }}.pem.csr"
+    dest: "./certificates/{{ inventory_hostname }}/{{ inventory_hostname }}.pem.crt"
+    fullchain_dest: "./certificates/{{ inventory_hostname }}/{{ inventory_hostname }}.pem.fullchain.crt"
+    acme_version: 2
+    acme_directory: "{{ acme_directory }}"
+    challenge: http-01
+    remaining_days: 60
+    force: true
+    deactivate_authzs: true
+  register: acme_challenge
+
+
+- name: DEBUG OUT THE LET'S ENCRYPT CHALLENGE COMPLETE (** SECURITY RISK **)
+  debug:
+    msg: "{{ acme_challenge | to_nice_json }}"
+  # when: debug is true
+
+
+- name: DEACTIVATE ALL AUTHZ FOR AN ORDER
+  community.crypto.acme_certificate_deactivate_authz:
+    acme_version: 2
+    acme_directory: "{{ acme_directory }}"
+    account_key_src: ./certificates/letsencrypt_account.pem.key
+    order_uri: "{{ acme_challenge.order_uri }}"
+
 
 - name: REQUEST LET'S ENCRYPT CHALLENGE FOR THE APP CSR
   acme_certificate:
@@ -67,14 +98,14 @@
     acme_directory: "{{ acme_directory }}"
     challenge: http-01
     remaining_days: 60
-    # force: true
+    force: true
+    deactivate_authzs: true
   register: acme_challenge
-
 
 - name: DEBUG OUT THE LET'S ENCRYPT CHALLENGE COMPLETE (** SECURITY RISK **)
   debug:
     msg: "{{ acme_challenge | to_nice_json }}"
-  when: debug is true
+  # when: debug is true
 
 
 - name: IF NOT EXIST, TOUCH LET'S ENCRYPT CHALLENGE TO FILE  

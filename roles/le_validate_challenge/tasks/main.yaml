@@ -33,6 +33,7 @@
     acme_directory: "{{ acme_directory }}"
     challenge: http-01
     data: "{{ acme_challenge }}"
+    deactivate_authzs: true
   register: acme_certs
 
 
